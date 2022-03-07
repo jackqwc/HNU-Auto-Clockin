@@ -8,6 +8,7 @@ on:
     push:
     schedule:
     - cron: '10 22 * * *'
+      # 👆在上面那行修改打卡时间
       # 06:10 everyday in UTC+8, 22:10 everyday in UTC+0
 
 jobs:
@@ -26,6 +27,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8 pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip3 install torch==1.10.2+cpu torchvision==0.11.3+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
+
     - name: Start Clocking in
       env:
           username:   ${{ secrets.USERNAME }}
@@ -33,8 +36,5 @@ jobs:
           province:   ${{ secrets.PROVINCE }}
           city:       ${{ secrets.CITY }}
           county:     ${{ secrets.COUNTY }}
-          app_id:     ${{ secrets.APP_ID }}
-          api_key:    ${{ secrets.API_KEY }}
-          secret_key: ${{ secrets.SECRET_KEY }}
       run: |
-        python clock_in.py --username=$username --password=$password --province=$province --city=$city --county=$county --app_id=$app_id --api_key=$api_key --secret_key=$secret_key
+        python clock_in.py --username=$username --password=$password --province=$province --city=$city --county=$county

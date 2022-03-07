@@ -1,8 +1,10 @@
-from aip import AipOcr
 import requests
 import json
 import argparse
 import re
+import cv2
+import numpy as np
+from captcha import recognize
 
 # 初始化变量
 parser = argparse.ArgumentParser()
@@ -11,19 +13,20 @@ parser.add_argument('--password', type=str, default=None)
 parser.add_argument('--province', type=str, default=None)
 parser.add_argument('--city', type=str, default=None)
 parser.add_argument('--county', type=str, default=None)
-parser.add_argument('--app_id', type=str, default=None)
-parser.add_argument('--api_key', type=str, default=None)
-parser.add_argument('--secret_key', type=str, default=None)
 args = parser.parse_args()
-
-# 初始化OCR识别API
-OCRClient = AipOcr(args.app_id, args.api_key, args.secret_key)
 
 def captchaOCR():
     captcha = ''
+    token   = '' 
     while len(captcha) != 4:
-        token = json.loads(requests.get('https://fangkong.hnu.edu.cn/api/v1/account/getimgvcode').text)['data']['Token']
-        captcha = OCRClient.basicGeneralUrl(f'https://fangkong.hnu.edu.cn/imagevcode?token={token}')['words_result'][0]['words']
+        token = requests.get('https://fangkong.hnu.edu.cn/api/v1/account/getimgvcode').json()['data']['Token']
+        image_raw = requests.get(f'https://fangkong.hnu.edu.cn/imagevcode?token={token}').content
+        image = cv2.imdecode(np.frombuffer(image_raw, np.uint8), cv2.IMREAD_COLOR)
+        try:
+            captcha = recognize(image)
+        except Exception as err:
+            print(err)
+
     return token, captcha
 
 def login():
@@ -47,28 +50,18 @@ def main():
     clockin_url = 'https://fangkong.hnu.edu.cn/api/v1/clockinlog/add'
     headers = login()
     lon, lat, real_address = setLocation()
-    clockin_data = {"Temperature":"null",
+    clockin_data = {
+                    "Longitude":lon,
+                    "Latitude":lat,
                     "RealProvince":args.province,
                     "RealCity":args.city,
                     "RealCounty":args.county,
                     "RealAddress":real_address,
-                    "IsUnusual":"0",
-                    "UnusualInfo":"",
-                    "IsTouch":"0",
-                    "IsInsulated":"0",
-                    "IsSuspected":"0",
-                    "IsDiagnosis":"0",
-                    "tripinfolist":[{"aTripDate":"","FromAdr":"","ToAdr":"","Number":"","trippersoninfolist":[]}],
-                    "toucherinfolist":[],
-                    "dailyinfo":{"IsVia":"0","DateTrip":""},
-                    "IsInCampus":"1",
-                    "IsViaHuBei":"0",
-                    "IsViaWuHan":"0",
-                    "InsulatedAddress":"",
-                    "TouchInfo":"",
-                    "IsNormalTemperature":"1",
-                    "Longitude":lon,
-                    "Latitude":lat
+                    "BackState":1,
+                    "MorningTemp":"36.5",
+                    "NightTemp":"36.5",
+                    "tripinfolist":[],
+                    "QRCodeColor":"绿色"
                     }
 
     clockin = requests.post(clockin_url, headers=headers, json=clockin_data)
@@ -76,15 +69,25 @@ def main():
     if clockin.status_code == 200:
         if '成功' in clockin.text or '已提交' in clockin.text:
             isSucccess = 0
+        else:
+            isSucccess = 1
+            print(json.loads(clockin.text)['msg'])
     else:
         isSucccess = 1
     print(json.loads(clockin.text)['msg'])
 
     return isSucccess
 
-for i in range(10):
-    try:    
-        main()
-        break
-    except:
-        continue
+main()
+
+# for i in range(10):
+#     try:    
+#         a = main()
+#         if a == 0:
+#             break
+#         elif i == 9 and a == 1:
+#             raise ValueError("打卡失败")
+#         else:
+#             continue
+#     except:
+#         continue
