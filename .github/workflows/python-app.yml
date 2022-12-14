@@ -5,11 +5,10 @@ name: Auto_Clockin_GitHub_Action
 
 on:
     workflow_dispatch:
-    push:
     schedule:
-    - cron: '10 22 * * *'
+    - cron: '30 17 * * *'
       # 👆在上面那行修改打卡时间
-      # 06:10 everyday in UTC+8, 22:10 everyday in UTC+0
+      # 1:30 everyday in UTC+8, 17:30 everyday in UTC+0
 
 jobs:
   build:
@@ -17,9 +16,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v2
+    - uses: actions/checkout@main
+    - name: Set up Python
+      uses: actions/setup-python@main
       with:
         python-version: 3.9
     - name: Install dependencies
@@ -27,6 +26,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8 pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip3 install torch==1.10.2+cpu torchvision==0.11.3+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
+
     - name: Start Clocking in
       env:
           username:   ${{ secrets.USERNAME }}
