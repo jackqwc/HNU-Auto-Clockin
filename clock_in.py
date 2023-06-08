@@ -2,6 +2,9 @@ import requests
 import json
 import argparse
 import re
+import cv2
+import numpy as np
+from captcha import recognize
 
 # 初始化变量
 parser = argparse.ArgumentParser()
@@ -16,19 +19,14 @@ def captchaOCR():
     captcha = ''
     token   = '' 
     while len(captcha) != 4:
-        token = json.loads(requests.get('https://fangkong.hnu.edu.cn/api/v1/account/getimgvcode').text)['data']['Token']
-        data = {
-                'image_url': f'https://fangkong.hnu.edu.cn/imagevcode?token={token}',
-                'type': 'https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic',
-                'detect_direction': 'false'
-                }
-        captcha = requests.post('https://cloud.baidu.com/aidemo', data=data).json()['data']['words_result'][0]['words']
-    print(token, captcha)
-    return token, captcha
-            
-    while len(captcha) != 4:
-        token = json.loads(requests.get('https://fangkong.hnu.edu.cn/api/v1/account/getimgvcode').text)['data']['Token']
-        captcha = requests.post('https://cloud.baidu.com/aidemo', data=data).json()['data']['words_result'][0]['words']
+        token = requests.get('https://fangkong.hnu.edu.cn/api/v1/account/getimgvcode').json()['data']['Token']
+        image_raw = requests.get(f'https://fangkong.hnu.edu.cn/imagevcode?token={token}').content
+        image = cv2.imdecode(np.frombuffer(image_raw, np.uint8), cv2.IMREAD_COLOR)
+        try:
+            captcha = recognize(image)
+        except Exception as err:
+            print(err)
+
     return token, captcha
 
 def login():
@@ -45,7 +43,7 @@ def login():
 
 def setLocation():
     location = json.loads(requests.get(f'http://api.tianditu.gov.cn/geocoder?ds={{"keyWord":\"{args.province+args.city+args.county}\"}}&tk=2355cd686a32d016021bffbc4a69d880').text)["location"]
-    real_address = "。" # 在此填写详细地址
+    real_address = "湖南大学天马学生公寓" # 在此填写详细地址
     return location["lon"], location["lat"], real_address
 
 def main():
@@ -53,39 +51,18 @@ def main():
     headers = login()
     lon, lat, real_address = setLocation()
     clockin_data = {
-                    "Temperature": "null",
-                    "RealProvince": args.province,
-                    "RealCity": args.city,
-                    "RealCounty": args.county,
-                    "RealAddress": real_address,
-                    "IsUnusual": "0",
-                    "UnusualInfo": "",
-                    "IsTouch": "0",
-                    "QRCodeColor": "绿色",
-                    "IsInsulated": "0",
-                    "IsSuspected": "0",
-                    "IsDiagnosis": "0",
-                    "tripinfolist": [{
-                        "aTripDate": "",
-                        "FromAdr": "",
-                        "ToAdr": "",
-                        "Number": "",
-                        "trippersoninfolist": []
-                    }],
-                    "toucherinfolist": [],
-                    "dailyinfo": {
-                        "IsVia": "0",
-                        "DateTrip": ""
-                    },
-                    "IsInCampus": "1",
-                    "IsViaHuBei": "0",
-                    "IsViaWuHan": "0",
-                    "InsulatedAddress": "",
-                    "TouchInfo": "",
-                    "IsNormalTemperature": "1",
-                    "Longitude": lon,
-                    "Latitude": lat
-                }
+                    "Longitude":lon,
+                    "Latitude":lat,
+                    "RealProvince":args.province,
+                    "RealCity":args.city,
+                    "RealCounty":args.county,
+                    "RealAddress":real_address,
+                    "BackState":1,
+                    "MorningTemp":"36.5",
+                    "NightTemp":"36.5",
+                    "tripinfolist":[],
+                    "QRCodeColor":"绿色"
+                    }
 
     clockin = requests.post(clockin_url, headers=headers, json=clockin_data)
 
@@ -101,14 +78,16 @@ def main():
 
     return isSucccess
 
-for i in range(10):
-    try:    
-        a = main()
-        if a == 0:
-            break
-        elif i == 9 and a == 1:
-            raise ValueError("打卡失败")
-        else:
-            continue
-    except:
-        continue
+main()
+
+# for i in range(10):
+#     try:    
+#         a = main()
+#         if a == 0:
+#             break
+#         elif i == 9 and a == 1:
+#             raise ValueError("打卡失败")
+#         else:
+#             continue
+#     except:
+#         continue
